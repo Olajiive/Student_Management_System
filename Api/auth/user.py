@@ -138,6 +138,6 @@ class Logout(Resource):
         jti = get_jwt()["jti"]
         BLOCKLIST.add(jti)
 
-        return {"access_token": "successfully logged out user"}
+        return {"access_token": "successfully logged user out"}
            
 
