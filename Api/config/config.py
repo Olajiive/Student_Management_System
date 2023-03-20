@@ -4,7 +4,12 @@ from datetime import timedelta
 
 BASE_DIR= os.path.dirname(os.path.realpath(__file__))
 
-uri = config("DATABASE_URL")
+db_name = "student_management"
+
+
+default_uri = "postgres://{}:{}@{}/{}".format('postgres', "password", "localhost:5432", db_name)
+
+uri = os.getenv("DATABASE_URL", default_uri)
 if uri.startswith("postgres://"):
     uri = uri.replace("postgres://", "postgresql://", 1)
 
