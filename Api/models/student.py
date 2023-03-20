@@ -12,7 +12,7 @@ class Student(db.Model):
     id=db.Column(db.Integer(), primary_key=True)
     firstname=db.Column(db.String(), nullable=False)
     lastname=db.Column(db.String(), nullable=False)
-    student_id=db.Column(db.String(70), unique=True, nullable=False, default=code_generator(f"STU|002|{datetime.now}|"))
+    student_id=db.Column(db.String(70), unique=True, nullable=False, default=code_generator(f"STU|002|{datetime.now().year}|"))
     email=db.Column(db.String(150), unique=True, nullable=False)
     password_hash=db.Column(db.Text(), nullable=False)
     gpa=db.Column(db.Float(), default=0.00, nullable=False)

@@ -353,7 +353,7 @@ RESPONSE
 ## Contact
 Olatunji Olasunkanmi - [@jiive_SZN](https://twitter.com/jiive_SZN) - muizolatunji29@gmail.com <br>
 
-Project Link: [Academia Api](https://github.com/Olajiive/Student_Management_System)
+Project Link: [student_Management_Api](https://github.com/Olajiive/Student_Management_System)
 <p align="right"><a href="#readme-top">back to top</a></p>
 ---
 <!-- Acknowledgements -->

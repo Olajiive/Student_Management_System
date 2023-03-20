@@ -14,12 +14,33 @@ from ..utils import db, calculate_gpa
 
 admin_namespace=Namespace("admin", description="The admin is responsible for managing the student management system")
 
+
+student_course_model = admin_namespace.model(
+    "Student_course", {
+        "grade":fields.String(reqquired=True, description="a student's grade")
+    }
+)
 student_model=admin_namespace.model(
     "Student", {
         "firstname":fields.String(required=True, description="A student's firstname"),
         "lastname":fields.String(required=True, description="A student's lastname"),
         "email":fields.String(required=True, description="A student's email address"),
         "password_hash":fields.String(required=True, description="A student's password")
+    }
+)
+reset_password_model=admin_namespace.model(
+    "password", {
+        "password_hash":fields.String(required=True, description="reset a student "),
+        "changed_password":fields.String(required=True)
+    }
+)
+
+student_model_update=admin_namespace.model(
+    "Student", {
+        "firstname":fields.String(required=True, description="A student's firstname"),
+        "lastname":fields.String(required=True, description="A student's lastname"),
+        "email":fields.String(required=True, description="A student's email address"),
+        "gpa":fields.String(required=True, description="A student's gpa")
     }
 )
 
@@ -34,6 +55,7 @@ admin_model=admin_namespace.model(
 
 student_output_model=admin_namespace.model(
     "Student", {
+        "id":fields.String(required=True, description="A student's ID"),
         "firstname":fields.String(required=True, description="A student's firstname"),
         "lastname":fields.String(required=True, description="A student's lastname"),
         "email":fields.String(required=True, description="A student's email address"),
@@ -45,10 +67,13 @@ student_output_model=admin_namespace.model(
 
 course_model = admin_namespace.model(
     "Course", {
-        "course_title":fields.String(required=True, description="title of thecourse offered"),
+        "id":fields.String(required=True, description="id of the course"),
+        "course_title":fields.String(required=True, description="title of the course offered"),
         "course_code":fields.String(required=True, description="code of the course offered"),
         "course_unit":fields.String(required=True, description="units of the course offered"),
-        "teacher":fields.String(required=True, description="teacher of the course offered")
+        "teacher":fields.String(required=True, description="teacher of the course offered"),
+        "score":fields.String(required=True, description="score of the course offered"),
+        "point":fields.String(required=True, description="point of the course offered")
     }
 )
 
@@ -84,16 +109,16 @@ class StudentGetCreate(Resource):
     @admin_required
     def post(self):
         data=admin_namespace.payload
-
-        if Student:
-            abort(HTTPStatus.FORBIDDEN, message="Student already exists" )
+        student = Student.query.filter_by(email=data.get("email")).first()
+        if student:
+            return {"message":"Student already exists"}, HTTPStatus.FORBIDDEN
 
         
         new_student = Student(
             firstname=data.get('firstname'), 
             lastname=data.get('lastname'), 
-            email=data.get('firstname'),
-            password_hash=generate_password_hash(data.get('firstname')),
+            email=data.get('email'),
+            password_hash=generate_password_hash(data.get('password_hash')),
             gpa=data.get("gpa")
         )
 
@@ -109,15 +134,18 @@ class GetUpdateDelStudent(Resource):
     @admin_required
     def get(self, stud_id):
         student=Student.get_by_id(stud_id)
-
-        return student, HTTPStatus.OK
+        if student:
+            return student, HTTPStatus.OK
+        else:
+            abort(HTTPStatus.NOT_FOUND, message="student not found")
     
 
     @admin_namespace.doc(description="update student", summary= "updating and committing each student's information using his id" )
+    @admin_namespace.expect(student_model_update)
     @admin_namespace.marshal_with(student_output_model)
     @jwt_required()
     @admin_required
-    def put(self, stud_id):
+    def patch(self, stud_id):
         student=Student.get_by_id(stud_id)
 
         data=admin_namespace.payload
@@ -136,29 +164,33 @@ class GetUpdateDelStudent(Resource):
     @admin_required
     def delete(self, stud_id):
         student=Student.get_by_id(stud_id)
-
-        db.session.delete(student)
-        db.session.commit()
-        
-        return {"message": "Student has been successfully deleted" }, HTTPStatus.OK
+        if student:
+            db.session.delete(student)
+            db.session.commit()
+            return {"message": "Student has been successfully deleted" }, HTTPStatus.OK
+        else:
+            abort(HTTPStatus.NOT_FOUND, message="Student does not exist")
 
 @admin_namespace.route("/reset-student-password/string:stud_id")
 class ResetPassword(Resource):
     @admin_namespace.doc(description="Password reset", summary= "Reset student password to default" )
+    #@admin_namespace.expect(reset_password_model)
+    @admin_namespace.marshal_with(student_output_model)
     @jwt_required()
     @admin_required
-    def patch(self, stud_id):
+    def put(self, stud_id):
         student = Student.query.filter_by(stud_id)
         
         if student:
             student.password = default_password("registered")
             student.changed_password =False
             db.session.commit()
+            return {"message: Succesfully reset password"}, HTTPStatus.OK
 
         else:
             abort(HTTPStatus.NOT_FOUND, message="Student not found")
 
-        return {"message: Succesfully reset password"}, HTTPStatus.OK
+        
 
 @admin_namespace.route("/course")
 class GetPostCourse(Resource):
@@ -169,7 +201,7 @@ class GetPostCourse(Resource):
     def Get(self):
         course=Course.query.all()
 
-        return Course, HTTPStatus.OK
+        return course, HTTPStatus.OK
     
     @admin_namespace.doc(description="course creation", summary= "adding and commiting a course into the database" )
     @admin_namespace.expect(course_model)
@@ -179,18 +211,23 @@ class GetPostCourse(Resource):
     def post(self):
         data=admin_namespace.payload
         
-        if Course.query.filter_by(course_code=data.get("course_code").upper()):
-            abort(HTTPStatus.FORBIDDEN, message="This course already exists")
+        if Course.query.filter_by(course_code=data.get("course_code").upper()).first():
+            return {"message":"This course already exists"}, HTTPStatus.FORBIDDEN
+        
+        else:
 
-        course = Course(
-            course_title=data.get("course_title").upper(),
-            course_code=data.get("course_title").upper(),
-            course_unit=data.get("course_title"),
-            teacher=data.get("course_title").lower())            
+            course = Course(
+                course_title=data.get("course_title").upper(),
+                course_code=data.get("course_code").upper(),
+                course_unit=data.get("course_unit"),
+                teacher=data.get("teacher"),
+                score =data.get("score"),
+                grade=data.get("grade"),
+                point=data.get("point"))            
         
 
-        course.save()
-        return course, HTTPStatus.CREATED
+            course.save()
+            return course, HTTPStatus.CREATED
     
 @admin_namespace.route("/course/<int:course_id>")
 class GetUpdateDeleteCourse(Resource):
@@ -214,13 +251,15 @@ class GetUpdateDeleteCourse(Resource):
     @admin_required
     def put(self, course_id):
         course = Course.get_by_id(course_id)
-
+        data=admin_namespace.payload()
         if course :
-            data=admin_namespace.payload()
             course.course_title=data.get("course_title")
             course.course_code=data.get("course_code")
             course.course_unit=data.get("course_title")
             course.teacher=data.get("teacher")
+            course.score=data.get("score")
+            course.grade=data.get("grade")
+            course.point=data.get("point")
 
             db.session.commit()
         
@@ -244,7 +283,7 @@ class GetUpdateDeleteCourse(Resource):
 @admin_namespace.route('/student/<int:student_id>/course/<int:course_code>/student-grade')
 class GetStudentGrade(Resource):
     @admin_namespace.doc(description="student grade", summary= "get student grade using stud_id nd course_code" )
-    @admin_namespace.expect(registered_course_model)
+    @admin_namespace.expect(student_course_model)
     @admin_namespace.marshal_list_with(registered_course_model)
     @jwt_required()
     @admin_required
@@ -299,6 +338,19 @@ class GetAdmin(Resource):
         admin = Admin.query.all()
 
         return admin, HTTPStatus.OK
+
+@admin_namespace.route('/admins/<int:user_id>')
+class GetAdminbyID(Resource):
+    @admin_namespace.doc(description="Get Admin", summary= "Get an admin using ID" )
+    @admin_namespace.marshal_with(admin_model)
+    @jwt_required()
+    def get(self, user_id):
+        admin = Admin.get_by_id(user_id)
+        
+        if admin:
+            return admin, HTTPStatus.OK
+        else:
+            abort(HTTPStatus.NOT_FOUND, message="user is not found in the database")
     
             
 
@@ -322,3 +374,5 @@ class GetAdmin(Resource):
 
 
 
+
+        

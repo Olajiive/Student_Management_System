@@ -16,7 +16,8 @@ student_model=student_namespace.model(
         "lastname":fields.String(required=True, description="A student's lastname"),
         "email":fields.String(required=True, description="A student's email address"),
         "password_hash":fields.String(required=True, description="A student's password"),
-        "student_id":fields.String(required=True, description="A studend_id")
+        "student_id":fields.String(required=True, description="A studend_id"),
+        "changed_password":fields.String(required=True)
     }
 )
 
@@ -55,18 +56,21 @@ class GetStudent(Resource):
             abort(HTTPStatus.NOT_FOUND, message="student not found")
     
 
-@student_namespace.route('/student-profile')
+@student_namespace.route('/student-details')
 class GetStudent(Resource):
     @student_namespace.doc(description="get a student profile", summary= "Getting a student by email provides the student details which include the student id that gives access to the student profle when logged in" )
     @student_namespace.marshal_with(student_model)
     @jwt_required()
     def get(self):
-        students = Student.query.filter_by(student_id=get_jwt_identity()). first()
+        students = Student.query.filter_by(student_id=get_jwt_identity()).first()
         
         return students, HTTPStatus.OK
     
+@student_namespace.route('/update-password')
+class GetStudent(Resource):
     @student_namespace.doc(description="Update password", summary= "Updating and commiting a student password into the database " )
     @student_namespace.expect(student_model)
+    @student_namespace.marshal_with(student_model)
     @jwt_required()
     def patch(self):
         student=Student.query.filter_by(student_id=get_jwt_identity()).first
@@ -83,7 +87,7 @@ class GetStudent(Resource):
             
         password = generate_password_hash(data.get("password"))
         student.password = password
-        student.password_changed=True
+        student.changed_password=True
         db.session.commit()
 
         return {"message": "password successfully updated"}, HTTPStatus.OK
@@ -135,14 +139,14 @@ class GetCreateCourse(Resource):
         course.save()
         return course, HTTPStatus.CREATED
 
-@student_namespace.route("/course/<int:course_id>")
+@student_namespace.route("/registered-course/<int:course_id>")
 class GetPutDelete(Resource):
     @student_namespace.doc(description="get a course by id", summary= "get a course registered by a student using course_id" )
-    @student_namespace.marshal_with(course_model)
+    @student_namespace.marshal_with(registered_course_model)
     @jwt_required()
     @student_required
     def get(self, course_id):
-        course=Course.get_by_id(course_id)
+        course=Registeredcourses.get_by_id(course_id)
         if course:
             return course, HTTPStatus.OK
         else:
@@ -168,15 +172,7 @@ class GetPutDelete(Resource):
             abort(HTTPStatus.NOT_FOUND, message="course not found")
         
     
-    @jwt_required()
-    @student_required
-    def delete(self, course_id):
-        course = Course.get_by_id(course_id)
-
-        db.session.delete(course)
-        db.session.commit()
-
-        return course, {"message": "course successfully deleted"}
+    
 
 
         
