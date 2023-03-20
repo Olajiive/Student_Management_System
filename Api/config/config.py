@@ -17,7 +17,7 @@ class Config:
     SECRET_KEY = config('SECRET_KEY', "secret")
     JWT_ACCESS_TOKEN_EXPIRES =timedelta(minutes=30)
     JWT_REFRESH_TOKEN_EXPIRES =timedelta(minutes=30)
-    JWT_SECRET_KEY= config("JWT_SECRET_KEY")
+    JWT_SECRET_KEY= config("JWT_SECRET_KEY", "secret")
 
 class DevConfig(Config):
     DEBUG = True
@@ -29,7 +29,7 @@ class TestConfig(Config):
     TESTING= True
     SQLALCHEMY_TRACK_MODIFICATIONS= False
     SQLALCHEMY_ECHO = True
-    SQLALCHEMY_DATABASE_URI = "sqlite://test.db"
+    SQLALCHEMY_DATABASE_URI = "sqlite://"
 
 
 class ProdConfig(Config):

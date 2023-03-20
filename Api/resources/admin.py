@@ -1,94 +1,112 @@
 from ..models.admin import Admin
 from ..models.student import Student
-from flask_restx import Namespace, fields, Resource
-from flask import abort
+from flask_restx import Namespace, fields, Resource, abort
 from http import HTTPStatus
 from ..models.admin import admin_required
-from ..models.admin import Admin 
-from ..models.student import Student,default_password
+from ..models.admin import Admin
+from ..models.student import Student, default_password
 from ..models.courses import Course
 from ..models.registered_courses import Registeredcourses
 from flask_jwt_extended import jwt_required
 from werkzeug.security import generate_password_hash
 from ..utils import db, calculate_gpa
 
-admin_namespace=Namespace("admin", description="The admin is responsible for managing the student management system")
-
+admin_namespace = Namespace("admin", description="The admin is responsible for managing the student management system")
 
 student_course_model = admin_namespace.model(
     "Student_course", {
-        "grade":fields.String(reqquired=True, description="a student's grade")
+        "grade": fields.String(reqquired=True, description="a student's grade")
     }
 )
-student_model=admin_namespace.model(
-    "Student", {
-        "firstname":fields.String(required=True, description="A student's firstname"),
-        "lastname":fields.String(required=True, description="A student's lastname"),
-        "email":fields.String(required=True, description="A student's email address"),
-        "password_hash":fields.String(required=True, description="A student's password")
+student_model = admin_namespace.model(
+    "PlainStudent", {
+        "firstname": fields.String(required=True, description="A student's firstname"),
+        "lastname": fields.String(required=True, description="A student's lastname"),
+        "email": fields.String(required=True, description="A student's email address"),
+        "password_hash": fields.String(required=True,
+                                       description="A student's password", load_only=True),
+        "student_id": fields.String(required=True,
+                                    description="Students details", dump_only=True)
     }
 )
-reset_password_model=admin_namespace.model(
+reset_password_model = admin_namespace.model(
     "password", {
-        "password_hash":fields.String(required=True, description="reset a student "),
-        "changed_password":fields.String(required=True)
+        "password_hash": fields.String(required=True, description="reset a student "),
+        "changed_password": fields.String(required=True)
     }
 )
 
-student_model_update=admin_namespace.model(
-    "Student", {
-        "firstname":fields.String(required=True, description="A student's firstname"),
-        "lastname":fields.String(required=True, description="A student's lastname"),
-        "email":fields.String(required=True, description="A student's email address"),
-        "gpa":fields.String(required=True, description="A student's gpa")
+student_model_update = admin_namespace.model(
+    "StudentUpdate", {
+        "firstname": fields.String(required=True, description="A student's firstname"),
+        "lastname": fields.String(required=True, description="A student's lastname"),
+        "email": fields.String(required=True, description="A student's email address"),
+        "gpa": fields.String(required=True, description="A student's gpa"),
     }
 )
 
-admin_model=admin_namespace.model(
+registered_student_under_course = admin_namespace.model(
+    "RegisteredStudentUnderCourse", {
+        "id": fields.String(required=True, description="A student's ID"),
+        "firstname": fields.String(required=True, description="A student's firstname"),
+        "lastname": fields.String(required=True, description="A student's lastname"),
+        "student_id": fields.String(required=True, description="A student's student_id"),
+    }
+)
+
+admin_model = admin_namespace.model(
     "Admin", {
-        "id":fields.String(required=True, description="A admin id"),
-        "name":fields.String(required=True, description="An admin name"),
-        "admin_id":fields.String(required=True, description="A admin_id "),
+        "id": fields.String(required=True, description="A admin id"),
+        "name": fields.String(required=True, description="An admin name"),
+        "admin_id": fields.String(required=True, description="A admin_id "),
         "email": fields.String(required=True, description="A admin email"),
     }
 )
 
-student_output_model=admin_namespace.model(
+student_output_model = admin_namespace.model(
     "Student", {
-        "id":fields.String(required=True, description="A student's ID"),
-        "firstname":fields.String(required=True, description="A student's firstname"),
-        "lastname":fields.String(required=True, description="A student's lastname"),
-        "email":fields.String(required=True, description="A student's email address"),
-        "password_hash":fields.String(required=True, description="A student's password"),
-        "gpa":fields.String(required=True, description="A student's grade point average(gpa)"),
-        "date_created":fields.String(required=True, description="The date which the student was creted")
+        "id": fields.String(required=True, description="A student's ID"),
+        "firstname": fields.String(required=True, description="A student's firstname"),
+        "lastname": fields.String(required=True, description="A student's lastname"),
+        "email": fields.String(required=True, description="A student's email address"),
+        "password_hash": fields.String(required=True, description="A student's password"),
+        "gpa": fields.String(required=True, description="A student's grade point average(gpa)"),
+        "date_created": fields.String(required=True, description="The date which the student was creted")
     }
 )
 
 course_model = admin_namespace.model(
     "Course", {
-        "id":fields.String(required=True, description="id of the course"),
-        "course_title":fields.String(required=True, description="title of the course offered"),
-        "course_code":fields.String(required=True, description="code of the course offered"),
-        "course_unit":fields.String(required=True, description="units of the course offered"),
-        "teacher":fields.String(required=True, description="teacher of the course offered"),
-        "score":fields.String(required=True, description="score of the course offered"),
-        "point":fields.String(required=True, description="point of the course offered")
+        "id": fields.String(required=True, description="id of the course"),
+        "course_title": fields.String(required=True, description="title of the course offered"),
+        "course_code": fields.String(required=True, description="code of the course offered"),
+        "course_unit": fields.String(required=True, description="units of the course offered"),
+        "teacher": fields.String(required=True, description="teacher of the course offered"),
+        "registered_student": fields.List(fields.Nested(registered_student_under_course), description="student registered for the course", dump_only=True),
     }
 )
 
+register_a_course_model = admin_namespace.model(
+    "RegisterCourse", {
+        "course_title": fields.String(required=True, description="coursetitle of the course offered"),
+        "course_code": fields.String(required=True, description="course code of the course offered"),
+        "course_unit": fields.Integer(required=True, description="course unit of the course offered"),
+        "teacher": fields.String(required=True, description="teacher of the course offered")
+    })
+
 registered_course_model = admin_namespace.model(
-    "Course", {
-        "firstname":fields.String(required=True, description="firstname of the student"),
-        "lastname":fields.String(required=True, description="lastname of the student"),
-        "course_title":fields.String(required=True, description="coursetitle of the course offered"),
-        "course_code":fields.String(required=True, description="course code of the course offered"),
-        "course_unit":fields.String(required=True, description="course unit of the course offered"),
-        "score":fields.String(required=True, description="score of the course offered"),
-        "grade":fields.String(required=True, description="grade of the course offered"),
-        "point":fields.String(required=True, description="point of the course offered")
+    "CourseRegistered", {
+        "firstname": fields.String(required=True, description="firstname of the student"),
+        "lastname": fields.String(required=True, description="lastname of the student"),
+        "course_title": fields.String(required=True, description="coursetitle of the course offered"),
+        "course_code": fields.String(required=True, description="course code of the course offered"),
+        "course_unit": fields.String(required=True, description="course unit of the course offered"),
+        "score": fields.String(required=True, description="score of the course offered"),
+        "grade": fields.String(required=True, description="grade of the course offered"),
+        "point": fields.String(required=True, description="point of the course offered")
     }
 )
+
 
 @admin_namespace.route('/students')
 class StudentGetCreate(Resource):
@@ -100,7 +118,6 @@ class StudentGetCreate(Resource):
         students = Student.query.all()
         
         return students, HTTPStatus.OK
-    
 
     @admin_namespace.doc(description="Student creation", summary= "Adding and commiting new_students into the database" )
     @admin_namespace.expect(student_model)
@@ -125,7 +142,7 @@ class StudentGetCreate(Resource):
         new_student.save()
 
         return new_student, HTTPStatus.CREATED
-    
+
 @admin_namespace.route('/student/<int:stud_id>')
 class GetUpdateDelStudent(Resource):
     @admin_namespace.doc(description="Single student", summary= "retrieving each student using his id" )
@@ -198,32 +215,30 @@ class GetPostCourse(Resource):
     @admin_namespace.marshal_list_with(course_model)
     @jwt_required()
     @admin_required
-    def Get(self):
+    def get(self):
         course=Course.query.all()
 
         return course, HTTPStatus.OK
     
     @admin_namespace.doc(description="course creation", summary= "adding and commiting a course into the database" )
-    @admin_namespace.expect(course_model)
-    @admin_namespace.marshal_with(course_model)
+    @admin_namespace.expect(register_a_course_model)
+    @admin_namespace.marshal_with(register_a_course_model)
     @jwt_required()
     @admin_required
     def post(self):
         data=admin_namespace.payload
         
         if Course.query.filter_by(course_code=data.get("course_code").upper()).first():
-            return {"message":"This course already exists"}, HTTPStatus.FORBIDDEN
-        
+            abort(409, message="This course already exists")
+
         else:
 
             course = Course(
                 course_title=data.get("course_title").upper(),
                 course_code=data.get("course_code").upper(),
                 course_unit=data.get("course_unit"),
-                teacher=data.get("teacher"),
-                score =data.get("score"),
-                grade=data.get("grade"),
-                point=data.get("point"))            
+                teacher=data.get("teacher")
+            )
         
 
             course.save()
@@ -235,7 +250,7 @@ class GetUpdateDeleteCourse(Resource):
     @admin_namespace.marshal_with(course_model)
     @jwt_required()
     @admin_required
-    def Get(self, course_id):
+    def get(self, course_id):
         course = Course.get_by_id(course_id)
 
         if course :
@@ -351,28 +366,3 @@ class GetAdminbyID(Resource):
             return admin, HTTPStatus.OK
         else:
             abort(HTTPStatus.NOT_FOUND, message="user is not found in the database")
-    
-            
-
-        
-
-
-        
-
-
-
-
-
-
-        
-
-
-
-
-
-
-
-
-
-
-        

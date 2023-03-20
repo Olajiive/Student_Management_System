@@ -2,63 +2,60 @@ import unittest
 from .. import create_app
 from ..utils import db
 from ..models.student import Student
+from ..models.admin import Admin
+from ..models.courses import Course
+from ..models.courses import Course
 from ..config.config import config_dict
 from flask_jwt_extended import create_access_token
-from werkzeug.security import generate_password_hash
+from passlib.hash import pbkdf2_sha256
 
 
-class TestStudentProfileEndpoint(unittest.TestCase):
+class TestStudentByAdmin(unittest.TestCase):
     @classmethod
     def setUp(self):
-        self.app = create_app(config_dict["testconfig"])
-        self.app_context = self.app.app_context()
-        self.app_context.push()
+        self.app = create_app(config=config_dict["testconfig"])
+        self.appctx = self.app.app_context()
+        self.appctx.push()
         self.client = self.app.test_client()
         db.create_all()
-        # Create a test student
-        student = Student(
-            first_name="muiz",
-            last_name="olatunji",
-            email="muizolatunji29@gmail.com")
+        student= Student(
+            firstname= "string",
+            lastname= "string",
+            email= "string",
+            password_hash= pbkdf2_sha256.hash("password"),
+            student_id= "STU|1010"
+        )
         db.session.add(student)
         db.session.commit()
-    
+
     @classmethod
     def tearDown(self):
-        db.session.remove()
         db.drop_all()
-        self.app_context.pop()
+        self.appctx.pop()
         self.app = None
         self.client = None
 
-    def test_student_profile(self):
-        """Test that an authenticated student can retrieve their profile"""
-        # Create an access token for the test student
+    def test_create_student(self):
+        data = {
+            "firstname": "example",
+            "lastname": "example",
+            "email": "string@joe.com",
+            "password_hash": "string"
+        }
+        token = create_access_token(identity="ADM|12")
 
-        student = Student.query.filter_by(email="wonuola@gmail.com").first()
-        current_user = student.stud_id
-        access_token = create_access_token(identity=current_user)
-        # Send a GET request to the /student-profile endpoint with the access token
-        response = self.client.get("/student-profile",
-                                   headers={"Authorization": f"Bearer {access_token}"})
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
 
-        # Check that the response status code is 200 OK
-        self.assertEqual(response.status_code, 200)
+        response = self.client.post("/admin/students", headers=headers, json=data)
+        assert response.status_code == 201
 
-    def test_update_student_password(self):
-        """Test that an authenticated student can update their password"""
-        # Create an access token for the test student
-        student = Student.query.filter_by(email="wonuola@gmail.com").first()
-        current_user = student.stud_id
-        access_token = create_access_token(identity=current_user)
+    def test_get_students(self):
+        token = create_access_token(identity="ADM|12")
 
-        # Send a PATCH request to the /student-profile endpoint with the access token and new password data
-        password_data = {"new_password": "password",
-                         "confirm_password": "password"}
-        response = self.client.patch("/student-profile",
-                                     headers={"Authorization": f"Bearer {access_token}"},
-                                     json=password_data)
-
-        # Check that the response status code is 200 OK
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(generate_password_hash("newpassword", student.password_hash))
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+        response = self.client.get("/admin/students", headers=headers)
+        assert response.status_code == 200
